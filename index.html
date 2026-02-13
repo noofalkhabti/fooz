@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>التدريب الإلكتروني | النشاط الطلابي</title>
+
+<!-- Libraries for PDF + QR -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
+<style>
+  :root{
+    --primary:#0b6aa6;
+    --primary2:#0ea5a4;
+    --bg1:#f0fbff;
+    --bg2:#f6fff9;
+    --card:#ffffff;
+    --muted:#6b7280;
+    --shadow:0 12px 30px rgba(0,0,0,.10);
+    --radius:18px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family: system-ui,-apple-system,"Segoe UI",Tahoma,Arial;
+    background: linear-gradient(135deg,var(--bg1),var(--bg2));
+    color:#111827;
+  }
+  .wrap{max-width:980px; margin:28px auto; padding:14px;}
+  .card{
+    background:var(--card);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:22px;
+  }
+  .hidden{display:none;}
+  h2{margin:0 0 10px; color:var(--primary);}
+  p{line-height:1.9; margin:10px 0;}
+  input{
+    width:100%;
+    padding:12px 12px;
+    border-radius:12px;
+    border:1px solid rgba(17,24,39,.12);
+    outline:none;
+    margin:10px 0;
+    font-size:15px;
+  }
+  input:focus{border-color:rgba(11,106,166,.45); box-shadow:0 0 0 4px rgba(11,106,166,.12);}
+  button{
+    background:linear-gradient(135deg,var(--primary),var(--primary2));
+    color:#fff;
+    border:none;
+    border-radius:12px;
+    padding:11px 16px;
+    font-size:15px;
+    cursor:pointer;
+  }
+  button.secondary{
+    background:#eef2ff;
+    color:#111827;
+  }
+  button:disabled{opacity:.55; cursor:not-allowed;}
+  .row{display:flex; gap:12px; flex-wrap:wrap; align-items:center;}
+  .grow{flex:1}
+  .topbar{
+    display:flex; gap:14px; align-items:center; justify-content:space-between;
+    margin-bottom:14px;
+  }
+
+  /* Progress */
+  .progressBox{
+    flex:1;
+    background:#e5e7eb;
+    border-radius:999px;
+    height:12px;
+    overflow:hidden;
+    min-width:220px;
+  }
+  .progressFill{
+    height:100%;
+    width:0%;
+    background:linear-gradient(90deg,var(--primary),var(--primary2));
+    border-radius:999px;
+    transition:width .35s ease;
+  }
+  .meta{
+    display:flex; gap:10px; align-items:center; color:var(--muted); font-size:13px;
+    white-space:nowrap;
+  }
+  .badge{
+    background:#f3f4f6;
+    border:1px solid rgba(17,24,39,.08);
+    padding:6px 10px;
+    border-radius:999px;
+  }
+
+  /* Quiz */
+  .quiz{margin-top:14px; padding-top:10px; border-top:1px dashed rgba(17,24,39,.12);}
+  .q{
+    background:#fbfdff;
+    border:1px solid rgba(17,24,39,.08);
+    border-radius:14px;
+    padding:14px;
+    margin:10px 0;
+  }
+  .q p{margin:0 0 8px;}
+  label{display:block; padding:6px 0; cursor:pointer;}
+  .hint{color:var(--muted); font-size:13px; margin-top:8px;}
+
+  /* Certificate */
+  .certOuter{
+    margin-top:16px;
+    display:grid;
+    grid-template-columns: 1.2fr .8fr;
+    gap:14px;
+  }
+  @media (max-width:840px){
+    .certOuter{grid-template-columns:1fr;}
+  }
+  .certificate{
+    border:10px solid var(--primary);
+    border-radius:16px;
+    padding:26px;
+    text-align:center;
+    background:
+      radial-gradient(circle at top right, rgba(14,165,164,.10), transparent 55%),
+      radial-gradient(circle at bottom left, rgba(11,106,166,.12), transparent 55%),
+      #fff;
+  }
+  .certificate h1{margin:12px 0 6px; font-size:34px;}
+  .certificate h3{margin:8px 0; color:var(--primary);}
+  .certificate .small{color:var(--muted); font-size:13px;}
+  .certSide{
+    background:#ffffff;
+    border:1px solid rgba(17,24,39,.10);
+    border-radius:16px;
+    padding:14px;
+  }
+  .qrBox{
+    display:flex; justify-content:center; align-items:center;
+    padding:12px;
+    border-radius:14px;
+    border:1px dashed rgba(17,24,39,.18);
+    background:#fafafa;
+    min-height:210px;
+  }
+  .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;}
+  .note{font-size:12px; color:var(--muted); line-height:1.7;}
+  .ok{color:#059669; font-weight:700;}
+  .bad{color:#dc2626; font-weight:700;}
+
+  /* Verify panel */
+  .verify{
+    border:1px solid rgba(17,24,39,.10);
+    border-radius:16px;
+    padding:16px;
+    background:#fff;
+  }
+</style>
+</head>
+
+<body>
+  <div class="wrap">
+
+    <!-- Verification View (if opened via QR link) -->
+    <div class="card hidden" id="verifyView">
+      <h2>التحقق من الشهادة</h2>
+      <div class="verify" id="verifyBox"></div>
+      <div class="hint">إذا رغبتِ بإضافة تحقق “رسمي” لا يمكن تزويره، يلزم ربط التحقق بقاعدة بيانات (Google Sheets / Firebase).</div>
+      <div style="margin-top:12px">
+        <button class="secondary" onclick="goHome()">العودة للصفحة الرئيسية</button>
+      </div>
+    </div>
+
+    <!-- Registration -->
+    <div class="card" id="registration">
+      <h2>تسجيل المتدرب</h2>
+      <p class="hint">أدخِل/ي البيانات لبدء التدريب. سيتم استخدامها في الشهادة.</p>
+      <input id="name" type="text" placeholder="الاسم الكامل" />
+      <input id="org" type="text" placeholder="جهة العمل" />
+      <input id="email" type="email" placeholder="البريد الإلكتروني" />
+      <div class="row">
+        <button onclick="startTraining()">بدء التدريب</button>
+        <span class="hint">شرط النجاح: <b>85%</b></span>
+      </div>
+    </div>
+
+    <!-- Training -->
+    <div class="card hidden" id="training">
+      <div class="topbar">
+        <div class="progressBox" aria-label="Progress">
+          <div class="progressFill" id="progressFill"></div>
+        </div>
+        <div class="meta">
+          <span class="badge" id="progressText">0%</span>
+          <span class="badge">⏳ الوقت: <span id="timerText">00:00</span></span>
+          <span class="badge">شريحة <span id="slideNo">1</span>/<span id="slideTotal">1</span></span>
+        </div>
+      </div>
+
+      <h2 id="slideTitle"></h2>
+      <p id="slideContent"></p>
+
+      <div class="quiz" id="quiz"></div>
+
+      <div class="row" style="margin-top:12px">
+        <button class="secondary" onclick="prevSlide()" id="prevBtn">السابق</button>
+        <div class="grow"></div>
+        <button onclick="nextSlide()" id="nextBtn">التالي</button>
+      </div>
+
+      <div class="hint" id="quizHint">ملاحظة: يجب اختيار إجابة لكل سؤال للانتقال.</div>
+    </div>
+
+    <!-- Result -->
+    <div class="card hidden" id="result">
+      <h2>النتيجة</h2>
+      <p id="scoreText"></p>
+
+      <div class="row" id="resultActions">
+        <button onclick="buildCertificate()">إنشاء الشهادة</button>
+        <button class="secondary" onclick="restart()">إعادة المحاولة</button>
+      </div>
+
+      <div class="certOuter hidden" id="certOuter">
+        <div>
+          <div class="certificate" id="certificate">
+            <h3>شهادة إتمام تدريب</h3>
+            <div>تشهد إدارة/وحدة النشاط الطلابي بأن</div>
+            <h1 id="certName">—</h1>
+            <div>قد أتم تدريب <b>النشاط الطلابي</b></div>
+            <div style="margin-top:8px">بنسبة إنجاز</div>
+            <h3 id="certScore">—</h3>
+            <div class="small">جهة العمل: <span id="certOrg">—</span></div>
+            <div class="small">التاريخ: <span id="certDate">—</span></div>
+            <div class="small">رمز الشهادة: <span class="mono" id="certId">—</span></div>
+            <div style="margin-top:14px" class="small">© جميع الحقوق محفوظة</div>
+          </div>
+
+          <div class="row" style="margin-top:12px">
+            <button onclick="downloadCertificatePDF()">تحميل الشهادة PDF</button>
+            <button class="secondary" onclick="window.print()">طباعة</button>
+          </div>
+          <div class="hint">سيتم إنشاء ملف PDF مباشرة من الشهادة.</div>
+        </div>
+
+        <div class="certSide">
+          <h3 style="margin:0 0 10px; color:var(--primary);">QR للتحقق</h3>
+          <div class="qrBox" id="qr"></div>
+          <div style="margin-top:10px">
+            <div class="small">رابط التحقق:</div>
+            <div class="mono" id="verifyUrlText" style="font-size:12px; word-break:break-all;"></div>
+          </div>
+          <div class="note" style="margin-top:10px">
+            * يعرض التحقق بيانات الشهادة من الرابط نفسه (للتحقق البصري). للتحقق الرسمي غير القابل للتزوير يلزم تخزين الشهادة في قاعدة بيانات.
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+/* =========================
+   1) TRAINING CONTENT
+========================= */
+const slides = [
+  {
+    title:"المقدمة",
+    content:`يعد النشاط الطلابي من أهم الوسائل التربوية التي تسهم في تنمية شخصية الطالب بصورة متكاملة... ويساعد على اكتشاف المواهب وتنميتها وتعزيز روح التعاون والانتماء للمجتمع المدرسي.`,
+    seconds: 60,
+    questions:[
+      {q:"النشاط الطلابي يقتصر على تقديم المعلومات الأكاديمية فقط.", a:["صح","خطأ"], correct:1},
+      {q:"تساعد الأنشطة الطلابية على اكتشاف مواهب الطلاب.", a:["صح","خطأ"], correct:0},
+      {q:"يسهم النشاط في تنمية مهارات الطالب الاجتماعية والثقافية.", a:["صح","خطأ"], correct:0}
+    ]
+  },
+  {
+    title:"الرؤية والرسالة",
+    content:`الرؤية: إعداد طالب مبدع ومتميز يمتلك المهارات والمعارف للتفاعل الإيجابي مع مجتمعه. الرسالة: تقديم برامج وأنشطة متنوعة تنمي القدرات والمواهب وتعزز القيم في بيئة جاذبة ومحفزة.`,
+    seconds: 60,
+    questions:[
+      {q:"الرؤية تركز على إعداد طالب مبدع ومتميز.", a:["صح","خطأ"], correct:0},
+      {q:"الرسالة تهدف لتقديم برامج وأنشطة متنوعة.", a:["صح","خطأ"], correct:0},
+      {q:"الرؤية والرسالة لا علاقة لها بالقيم والسلوك.", a:["صح","خطأ"], correct:1}
+    ]
+  },
+  {
+    title:"طريقة تنفيذ النشاط",
+    content:`يتم تنفيذ النشاط الطلابي عبر خطة منظمة تشمل برامج وفعاليات تناسب ميول الطلاب وقدراتهم، مع إشراف المعلمين وتوفير الإمكانات اللازمة لضمان النجاح وتحقيق الأهداف.`,
+    seconds: 60,
+    questions:[
+      {q:"تنفيذ النشاط يتم دون خطة منظمة.", a:["صح","خطأ"], correct:1},
+      {q:"من عوامل نجاح النشاط إشراف المعلمين.", a:["صح","خطأ"], correct:0},
+      {q:"اختيار البرامج يجب أن يراعي ميول وقدرات الطلاب.", a:["صح","خطأ"], correct:0}
+    ]
+  },
+  {
+    title:"الأهداف",
+    content:`من أهداف النشاط: تنمية المهارات، تعزيز التعاون والعمل الجماعي، اكتشاف المواهب، استثمار وقت الفراغ، تعزيز القيم الأخلاقية والسلوكية، ورفع الثقة بالنفس.`,
+    seconds: 60,
+    questions:[
+      {q:"رفع الثقة بالنفس لدى الطلاب هدف من أهداف النشاط.", a:["صح","خطأ"], correct:0},
+      {q:"استثمار أوقات الفراغ بما يفيد الطالب ليس ضمن الأهداف.", a:["صح","خطأ"], correct:1},
+      {q:"تعزيز التعاون والعمل الجماعي من الأهداف.", a:["صح","خطأ"], correct:0}
+    ]
+  },
+  {
+    title:"علاقة النشاط بالمناهج الدراسية",
+    content:`يرتبط النشاط بالمناهج ارتباطًا وثيقًا عبر التطبيق العملي لترسيخ المفاهيم العلمية والعملية، وتبسيط المعلومات وربطها بالحياة اليومية لجعل التعلم أكثر متعة وفائدة.`,
+    seconds: 60,
+    questions:[
+      {q:"يسهم النشاط في ترسيخ المفاهيم عبر التطبيق العملي.", a:["صح","خطأ"], correct:0},
+      {q:"ربط المعلومات بالحياة اليومية يسهل التعلم.", a:["صح","خطأ"], correct:0},
+      {q:"النشاط منفصل تمامًا عن المناهج الدراسية.", a:["صح","خطأ"], correct:1}
+    ]
+  },
+  {
+    title:"النشاط الصفي واللا صفي + البرامج",
+    content:`ينفذ النشاط هذا العام وفق: (1) نشاط صفي في حصة النشاط مرتبط بمحتوى معتمد ومتوفر على بوابة عين. (2) نشاط لا صفي عبر أنشطة الفترات اللاصفية لمدة ساعة يوميًا ومحتواها معتمد ومتوفر على بوابة عين. ومن برامج الفترات اللاصفية: القيم، الذكاء الاجتماعي والعاطفي، الذوق العام، الأمن السيبراني. وتشمل الأنشطة اللاصفية الثقافية والرياضية والفنية والاجتماعية والتطوعية والمسابقات العلمية.`,
+    seconds: 90,
+    questions:[
+      {q:"المحتوى المعتمد لبرامج المجالات متوفر على بوابة عين.", a:["صح","خطأ"], correct:0},
+      {q:"الأمن السيبراني مثال من برامج الفترات اللاصفية.", a:["صح","خطأ"], correct:0},
+      {q:"الأنشطة اللاصفية لا تشمل المسابقات العلمية.", a:["صح","خطأ"], correct:1}
+    ]
+  }
+];
+
+/* =========================
+   2) STATE
+========================= */
+let currentSlide = 0;
+let answers = []; // store selected for each slide
+let timer = null;
+let timeLeft = 0;
+
+const PASS_PERCENT = 85;
+
+/* =========================
+   3) HELPERS
+========================= */
+function $(id){ return document.getElementById(id); }
+
+function pad2(n){ return String(n).padStart(2,'0'); }
+
+function formatTime(sec){
+  const m = Math.floor(sec/60);
+  const s = sec % 60;
+  return `${pad2(m)}:${pad2(s)}`;
+}
+
+function getBaseUrl(){
+  // if hosted on GitHub Pages, this should be correct.
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.hash = "";
+  return url.toString();
+}
+
+function makeId(){
+  // simple unique id
+  return "SA-" + Date.now().toString(36).toUpperCase() + "-" + Math.random().toString(16).slice(2,6).toUpperCase();
+}
+
+function sanitizeShort(str, max=60){
+  if(!str) return "";
+  return String(str).replace(/[<>"']/g,"").trim().slice(0,max);
+}
+
+/* =========================
+   4) START / LOAD SLIDE
+========================= */
+function startTraining(){
+  const name = $("name").value.trim();
+  const org  = $("org").value.trim();
+  const email= $("email").value.trim();
+  if(!name || !org || !email){
+    alert("فضلاً أدخل/ي الاسم وجهة العمل والبريد الإلكتروني.");
+    return;
+  }
+  $("registration").classList.add("hidden");
+  $("training").classList.remove("hidden");
+  $("slideTotal").textContent = slides.length;
+  loadSlide();
+}
+
+function loadSlide(){
+  // stop previous timer
+  if(timer) clearInterval(timer);
+
+  const slide = slides[currentSlide];
+
+  $("slideNo").textContent = currentSlide + 1;
+  $("slideTitle").textContent = slide.title;
+  $("slideContent").textContent = slide.content;
+
+  // Progress bar (by slide index)
+  const prog = Math.round((currentSlide / slides.length) * 100);
+  $("progressFill").style.width = prog + "%";
+  $("progressText").textContent = prog + "%";
+
+  // Buttons
+  $("prevBtn").disabled = currentSlide === 0;
+  $("nextBtn").textContent = (currentSlide === slides.length - 1) ? "إنهاء" : "التالي";
+
+  // Render quiz
+  const quiz = $("quiz");
+  quiz.innerHTML = "";
+  slide.questions.forEach((qq, i)=>{
+    const box = document.createElement("div");
+    box.className = "q";
+    box.innerHTML = `<p><b>سؤال ${i+1}:</b> ${qq.q}</p>` +
+      qq.a.map((opt, idx)=>`
+        <label>
+          <input type="radio" name="q${i}" value="${idx}">
+          ${opt}
+        </label>
+      `).join("");
+    quiz.appendChild(box);
+  });
+
+  // Restore saved selection (if user went back)
+  if(answers[currentSlide]){
+    answers[currentSlide].forEach((val, i)=>{
+      const el = document.querySelector(`input[name="q${i}"][value="${val}"]`);
+      if(el) el.checked = true;
+    });
+  }
+
+  // Start timer for this slide
+  timeLeft = slide.seconds ?? 60;
+  $("timerText").textContent = formatTime(timeLeft);
+  timer = setInterval(()=>{
+    timeLeft--;
+    $("timerText").textContent = formatTime(Math.max(0,timeLeft));
+    if(timeLeft <= 0){
+      clearInterval(timer);
+      // auto-submit and move next (only if all answered; else force to choose)
+      // we'll require answers; if not answered, show alert and restart timer shorter.
+      if(!allAnswered()){
+        alert("انتهى الوقت! فضلاً اختر إجابة لكل سؤال بسرعة.");
+        timeLeft = 20;
+        $("timerText").textContent = formatTime(timeLeft);
+        timer = setInterval(()=>{
+          timeLeft--;
+          $("timerText").textContent = formatTime(Math.max(0,timeLeft));
+          if(timeLeft<=0){
+            clearInterval(timer);
+            // final auto: treat unanswered as wrong and continue
+            saveAnswersAllowBlank();
+            goNext();
+          }
+        },1000);
+      }else{
+        saveAnswersStrict();
+        goNext();
+      }
+    }
+  },1000);
+}
+
+function allAnswered(){
+  const slide = slides[currentSlide];
+  for(let i=0; i<slide.questions.length; i++){
+    const sel = document.querySelector(`input[name="q${i}"]:checked`);
+    if(!sel) return false;
+  }
+  return true;
+}
+
+function saveAnswersStrict(){
+  const slide = slides[currentSlide];
+  const arr = [];
+  for(let i=0; i<slide.questions.length; i++){
+    const sel = document.querySelector(`input[name="q${i}"]:checked`);
+    if(!sel) return null;
+    arr.push(parseInt(sel.value,10));
+  }
+  answers[currentSlide] = arr;
+  return arr;
+}
+
+function saveAnswersAllowBlank(){
+  const slide = slides[currentSlide];
+  const arr = [];
+  for(let i=0; i<slide.questions.length; i++){
+    const sel = document.querySelector(`input[name="q${i}"]:checked`);
+    arr.push(sel ? parseInt(sel.value,10) : -1);
+  }
+  answers[currentSlide] = arr;
+  return arr;
+}
+
+/* =========================
+   5) NAV
+========================= */
+function nextSlide(){
+  if(!allAnswered()){
+    alert("يجب اختيار إجابة لكل سؤال قبل الانتقال.");
+    return;
+  }
+  saveAnswersStrict();
+  goNext();
+}
+
+function goNext(){
+  if(timer) clearInterval(timer);
+  currentSlide++;
+  if(currentSlide < slides.length){
+    loadSlide();
+  }else{
+    showResult();
+  }
+}
+
+function prevSlide(){
+  if(timer) clearInterval(timer);
+  // save whatever is selected (allow blank)
+  saveAnswersAllowBlank();
+  currentSlide = Math.max(0, currentSlide-1);
+  loadSlide();
+}
+
+/* =========================
+   6) RESULT + CERT
+========================= */
+function calcScore(){
+  let correct = 0;
+  let total = 0;
+  slides.forEach((s, si)=>{
+    const a = answers[si] || [];
+    s.questions.forEach((q, qi)=>{
+      total++;
+      if(a[qi] === q.correct) correct++;
+    });
+  });
+  const percent = total ? (correct/total)*100 : 0;
+  return {correct, total, percent};
+}
+
+function showResult(){
+  $("training").classList.add("hidden");
+  $("result").classList.remove("hidden");
+
+  const {correct, total, percent} = calcScore();
+  const rounded = Math.round(percent);
+
+  const status = (percent >= PASS_PERCENT)
+    ? `<span class="ok">ناجح ✅</span>`
+    : `<span class="bad">لم تحقق نسبة النجاح ❌</span>`;
+
+  $("scoreText").innerHTML = `عدد الإجابات الصحيحة: <b>${correct}</b> من <b>${total}</b><br>
+  نسبتك: <b>${rounded}%</b> — ${status}<br>
+  شرط النجاح: <b>${PASS_PERCENT}%</b>`;
+
+  // enable/disable create certificate
+  $("resultActions").querySelector("button").disabled = percent < PASS_PERCENT;
+}
+
+function buildCertificate(){
+  const {percent} = calcScore();
+  if(percent < PASS_PERCENT){
+    alert("لا يمكن إصدار شهادة إلا بعد تحقيق 85%.");
+    return;
+  }
+
+  const name = sanitizeShort($("name").value, 50);
+  const org  = sanitizeShort($("org").value, 70);
+  const now  = new Date();
+  const date = now.toLocaleDateString("ar-SA");
+
+  const certId = makeId();
+
+  $("certName").textContent = name || "—";
+  $("certOrg").textContent = org || "—";
+  $("certDate").textContent = date;
+  $("certScore").textContent = `${Math.round(percent)}%`;
+  $("certId").textContent = certId;
+
+  // Build verification URL (same page with params)
+  const base = getBaseUrl();
+  const verifyUrl = new URL(base);
+  verifyUrl.searchParams.set("verify", "1");
+  verifyUrl.searchParams.set("id", certId);
+  verifyUrl.searchParams.set("name", name);
+  verifyUrl.searchParams.set("org", org);
+  verifyUrl.searchParams.set("score", String(Math.round(percent)));
+  verifyUrl.searchParams.set("date", date);
+
+  $("verifyUrlText").textContent = verifyUrl.toString();
+
+  // Render QR
+  $("qr").innerHTML = "";
+  new QRCode($("qr"), {
+    text: verifyUrl.toString(),
+    width: 190,
+    height: 190
+  });
+
+  $("certOuter").classList.remove("hidden");
+  // scroll
+  setTimeout(()=> $("certOuter").scrollIntoView({behavior:"smooth"}), 150);
+}
+
+async function downloadCertificatePDF(){
+  const el = $("certificate");
+  // Make high-res canvas
+  const canvas = await html2canvas(el, {scale: 2});
+  const imgData = canvas.toDataURL("image/png");
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({
+    orientation: "landscape",
+    unit: "pt",
+    format: "a4"
+  });
+
+  // Fit image to A4 landscape
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+
+  // keep aspect ratio
+  const imgW = canvas.width;
+  const imgH = canvas.height;
+  const ratio = Math.min(pageW / imgW, pageH / imgH);
+  const w = imgW * ratio;
+  const h = imgH * ratio;
+  const x = (pageW - w) / 2;
+  const y = (pageH - h) / 2;
+
+  pdf.addImage(imgData, "PNG", x, y, w, h);
+  pdf.save("شهادة-النشاط-الطلابي.pdf");
+}
+
+function restart(){
+  // reset
+  currentSlide = 0;
+  answers = [];
+  score = 0;
+  totalQuestions = 0;
+
+  $("result").classList.add("hidden");
+  $("registration").classList.remove("hidden");
+  $("certOuter").classList.add("hidden");
+  $("qr").innerHTML = "";
+}
+
+/* =========================
+   7) VERIFY MODE (QR)
+========================= */
+function goHome(){
+  const base = getBaseUrl();
+  window.location.href = base; // remove params
+}
+
+function renderVerifyIfNeeded(){
+  const params = new URLSearchParams(window.location.search);
+  if(params.get("verify") !== "1") return;
+
+  // hide other views
+  $("registration").classList.add("hidden");
+  $("training").classList.add("hidden");
+  $("result").classList.add("hidden");
+  $("verifyView").classList.remove("hidden");
+
+  const id = sanitizeShort(params.get("id"), 60);
+  const name = sanitizeShort(params.get("name"), 60);
+  const org = sanitizeShort(params.get("org"), 80);
+  const score = sanitizeShort(params.get("score"), 10);
+  const date = sanitizeShort(params.get("date"), 30);
+
+  $("verifyBox").innerHTML = `
+    <p>تم فتح رابط تحقق الشهادة. البيانات التالية هي ما تم تضمينه داخل رمز QR:</p>
+    <ul>
+      <li>رمز الشهادة: <b class="mono">${id || "—"}</b></li>
+      <li>الاسم: <b>${name || "—"}</b></li>
+      <li>جهة العمل: <b>${org || "—"}</b></li>
+      <li>النسبة: <b>${score ? score+"%" : "—"}</b></li>
+      <li>التاريخ: <b>${date || "—"}</b></li>
+    </ul>
+    <p class="note">هذا التحقق “بصري” (يعرض البيانات من الرابط). لإضافة تحقق رسمي غير قابل للتعديل يلزم حفظ رقم الشهادة في قاعدة بيانات ومطابقة الرقم عند فتح الرابط.</p>
+  `;
+}
+
+renderVerifyIfNeeded();
+</script>
+
+</body>
+</html>
